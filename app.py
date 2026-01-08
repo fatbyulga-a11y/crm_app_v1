@@ -8,33 +8,39 @@ from datetime import datetime
 import time
 
 # ==========================================
-# 1. 설정 및 최적화된 연결
+# 1. 설정 및 UI 숨김 (강력 모드)
 # ==========================================
 st.set_page_config(
     page_title="춘천시산림조합 CRM", 
     page_icon="🌲", 
     layout="wide", 
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" # 사이드바 기본 닫힘
 )
 
-# 👇 [여기부터] UI 숨기기 코드 추가 (복사해서 붙여넣으세요) 👇
-hide_streamlit_style = """
-            <style>
-            /* 1. 우측 상단 점 3개 메뉴 숨기기 */
-            #MainMenu {visibility: hidden;}
-            
-            /* 2. 하단 푸터 (Made with Streamlit) 숨기기 */
-            footer {visibility: hidden;}
-            
-            /* 3. 우측 상단 배포(Deploy) 버튼 숨기기 */
-            .stDeployButton {display:none;}
-            
-            /* ⚠️ 중요: header 전체를 숨기면 사이드바 버튼도 사라지니 이 줄은 삭제했습니다. */
-            /* header {visibility: hidden;} */
-            </style>
-            """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# 👆 [여기까지] 추가하면 됩니다 👆
+# 👇 [핵심] 모든 시스템 UI를 숨기는 CSS 코드
+hide_all_ui = """
+    <style>
+        /* 1. 상단 헤더, 햄버거 메뉴, 데코레이션 바 숨기기 */
+        header {visibility: hidden;}
+        
+        /* 2. 사이드바 및 사이드바 열기 버튼 숨기기 */
+        [data-testid="stSidebar"] {display: none;}
+        [data-testid="collapsedControl"] {display: none;}
+        
+        /* 3. 푸터(Made with Streamlit) 숨기기 */
+        footer {visibility: hidden;}
+        
+        /* 4. 우측 상단 점 3개 메뉴 및 배포 버튼 숨기기 */
+        #MainMenu {visibility: hidden;}
+        .stDeployButton {display:none;}
+        
+        /* 5. 상단 여백 줄이기 (헤더가 사라진 자리) */
+        .block-container {
+            padding-top: 1rem !important; 
+        }
+    </style>
+"""
+st.markdown(hide_all_ui, unsafe_allow_html=True)
 
 # [인증 정보 캐싱]
 @st.cache_resource
@@ -75,7 +81,7 @@ try:
 except: pass
 
 # ==========================================
-# 2. 로직 함수 (고객번호 기준)
+# 2. 로직 함수들
 # ==========================================
 
 def add_audit_log(user_name, action, details):
@@ -89,18 +95,13 @@ def add_audit_log(user_name, action, details):
 def save_log(date, writer, cust_id, name, contact, raw, polished, summary, tags, dept, status, req):
     client = get_google_sheet_client()
     doc = client.open('조합원상담관리')
-    
-    # 1. 상담이력 저장 (고객번호 포함)
     sheet_log = doc.worksheet('상담이력')
-    # 순서: 날짜, 작성자, [고객번호], 고객명, 연락처...
     row = [str(date), writer, cust_id, name, contact, raw, polished, summary, dept, status, req, ""]
     sheet_log.append_row(row)
     
-    # 2. 태그 업데이트 (고객번호로 찾기)
     if tags:
         try:
             sheet_user = doc.worksheet('고객정보')
-            # 고객번호(A열)에서 찾기
             cell = sheet_user.find(cust_id)
             if cell:
                 headers = sheet_user.row_values(1)
@@ -118,7 +119,7 @@ def save_log(date, writer, cust_id, name, contact, raw, polished, summary, tags,
         except: pass
     
     add_audit_log(writer, "상담저장", f"{name}({cust_id}) 상담 저장")
-    get_data.clear() # 캐시 초기화
+    get_data.clear()
 
 def complete_action_logic(target_date, target_id, result_text, actor_name):
     client = get_google_sheet_client()
@@ -127,12 +128,11 @@ def complete_action_logic(target_date, target_id, result_text, actor_name):
         data = sheet.get_all_values()
         h = data[0]
         idx_date = h.index('날짜')
-        idx_id = h.index('고객번호') # 이제 고객번호로 찾음
+        idx_id = h.index('고객번호')
         idx_status = h.index('조치상태') + 1
         idx_res = h.index('조치결과') + 1
         
         for i in range(len(data)-1, 0, -1):
-            # 날짜와 고객번호가 일치하는지 확인
             if data[i][idx_date] == target_date and data[i][idx_id] == target_id:
                 final_result = f"{result_text} ({actor_name})"
                 sheet.update_cell(i+1, idx_status, "완료")
@@ -147,7 +147,6 @@ def update_info_cell(cust_id, col, val, actor_name):
     try:
         client = get_google_sheet_client()
         sheet = client.open('조합원상담관리').worksheet('고객정보')
-        # 고객번호로 행 찾기
         cell = sheet.find(cust_id)
         if cell:
             h = sheet.row_values(1)
@@ -174,7 +173,7 @@ if 'logged_in' not in st.session_state:
 
 if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.title("🌲춘천시산림조합")
+    st.title("🌲 춘천시산림조합 CRM")
     with st.container(border=True):
         uid = st.text_input("아이디")
         upw = st.text_input("비밀번호", type="password")
@@ -188,19 +187,27 @@ if not st.session_state['logged_in']:
             else:
                 st.error("정보 불일치")
 else:
-    with st.sidebar:
-        st.info(f"👤 **{st.session_state['user_name']}**님")
-        if st.button("🔄 데이터 최신화"):
+    # ------------------------------------------------
+    # [상단 영역] 제목 + 사용자정보 + 새로고침 버튼
+    # ------------------------------------------------
+    c_top1, c_top2 = st.columns([8, 2])
+    
+    with c_top1:
+        st.title("🌲 통합 고객관리 시스템")
+        st.caption(f"👤 로그인: **{st.session_state['user_name']}**님 환영합니다.")
+        
+    with c_top2:
+        # [요청 1] 데이터 새로고침 버튼 맨 위로 이동
+        st.markdown("<br>", unsafe_allow_html=True) # 줄맞춤용 공백
+        if st.button("🔄 데이터 최신화", use_container_width=True):
             get_data.clear()
-            st.rerun()
-        st.divider()
-        if st.button("로그아웃"):
-            add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
-            st.session_state['logged_in'] = False
+            st.toast("데이터를 새로 불러왔습니다!")
+            time.sleep(1)
             st.rerun()
 
-    st.title("🌲고객관리 시스템")
-    
+    # ------------------------------------------------
+    # [메인 영역] 탭 및 기능들
+    # ------------------------------------------------
     t1, t2, t3 = st.tabs(["🏠 최근 활동", "🔎 고객 상담", "🚨 업무 협조"])
 
     # [Tab 1] 최근 활동
@@ -212,7 +219,6 @@ else:
             for i, row in df.head(15).iterrows():
                 with st.container(border=True):
                     c1, c2 = st.columns([1, 4])
-                    # 고객명 옆에 고객번호 작게 표시
                     c1.markdown(f"**{row['고객명']}**")
                     c1.caption(f"ID: {row['고객번호']}\n{row['날짜']} | {row['작성자']}")
                     
@@ -224,14 +230,12 @@ else:
                     elif row['조치상태'] == '조치필요':
                         req = row['요청사항'] if row['요청사항'] else ""
                         c2.error(f"🚨 후속조치 요청 ({row['조치부서']}): {req}")
-        else:
-            st.info("데이터 없음")
+        else: st.info("데이터 없음")
 
-    # [Tab 2] 고객 상담 (고객번호로 통합 관리)
+    # [Tab 2] 고객 상담
     with t2:
         st.markdown("##### **고객 검색**")
         df_c = get_data('고객정보')
-        
         all_tags = set()
         if not df_c.empty and '태그' in df_c.columns:
             for t in df_c['태그'].dropna():
@@ -245,22 +249,17 @@ else:
         target = None
         if not df_c.empty and (q or sel_tags):
             mask = pd.Series([True]*len(df_c))
-            # 검색 조건에 고객번호 추가
             if q: mask &= (df_c['이름'].str.contains(q)|df_c['연락처'].str.contains(q)|df_c['고객번호'].str.contains(q))
             if sel_tags: mask &= df_c['태그'].apply(lambda x: any(t in str(x) for t in sel_tags))
             res = df_c[mask]
             
             if not res.empty:
-                # 선택지에서 고객번호를 명확히 보여줌
                 s = st.selectbox("검색 결과", [f"{r['이름']} (ID: {r['고객번호']} / {r['연락처']})" for i,r in res.iterrows()], label_visibility="collapsed")
-                
-                # 선택된 텍스트에서 ID 추출 (괄호 안 'ID: ' 뒤의 값)
                 sel_id = s.split('ID: ')[1].split(' /')[0]
                 target = res[res['고객번호'] == sel_id].iloc[0]
             else: st.warning("결과 없음")
 
         if target is not None:
-            # 조회 로그 (고객번호 기준)
             if st.session_state.get('last_viewed') != target['고객번호']:
                 add_audit_log(st.session_state['user_name'], "조회", f"{target['이름']}({target['고객번호']}) 조회")
                 st.session_state['last_viewed'] = target['고객번호']
@@ -268,29 +267,23 @@ else:
             st.divider()
             with st.container(border=True):
                 c1, c2 = st.columns([2,1])
-                
-                # [수정된 로직] 조합원/준조합원/일반 판별
                 m_num = str(target.get('조합원번호', ''))
                 if "-01-" in m_num:
                     member_badge = "🏅 조합원"
-                    badge_color = "#e3f2fd" # 파란색 배경
+                    badge_color = "#e3f2fd"
                 elif "-02-" in m_num:
                     member_badge = "🥈 준조합원"
-                    badge_color = "#f3e5f5" # 보라색 배경
+                    badge_color = "#f3e5f5"
                 else:
                     member_badge = "👤 일반고객"
-                    badge_color = "#eeeeee" # 회색 배경
+                    badge_color = "#eeeeee"
                 
-                # 이름 옆에 배지 표시
                 c1.markdown(f"### **{target['이름']}** <span style='font-size:0.6em; background:{badge_color}; padding:3px 6px; border-radius:5px;'>{member_badge}</span>", unsafe_allow_html=True)
-                
                 c1.caption(f"🆔 고객번호: **{target['고객번호']}**")
                 c1.caption(f"🎂 {target.get('생년월일','-')} | 📞 {target['연락처']}")
                 c1.caption(f"🏠 {target['주소']}")
-                
                 if target.get('태그'): c1.markdown(f"🏷️ `{target['태그']}`")
                 
-                # 조합원/준조합원일 때만 번호 표시
                 if "-01-" in m_num or "-02-" in m_num:
                     c2.metric("출자금", f"{target['출자금']}")
                     c2.caption(f"조합원No: {m_num}")
@@ -303,7 +296,6 @@ else:
                     nr = st.text_input("지인", value=target.get('지인관계',''))
                     nb = st.text_input("생년월일", value=target.get('생년월일',''))
                     if st.button("수정 저장", use_container_width=True):
-                        # 고객번호를 키값으로 사용하여 수정
                         update_info_cell(target['고객번호'], '직업_사업장', nj, st.session_state['user_name'])
                         update_info_cell(target['고객번호'], '가족관계', nf, st.session_state['user_name'])
                         update_info_cell(target['고객번호'], '지인관계', nr, st.session_state['user_name'])
@@ -312,33 +304,25 @@ else:
                         time.sleep(1)
                         st.rerun()
 
-            # [금융 이력] 고객번호로 매칭
             df_fin = get_data('금융이력')
             if not df_fin.empty:
-                # 고객번호가 일치하는 데이터만 가져옴
                 if '고객번호' in df_fin.columns:
                     u_fin = df_fin[df_fin['고객번호'] == target['고객번호']].copy()
-                    
                     if not u_fin.empty:
                         st.markdown("#### 📊 금융 자산 현황")
                         u_fin['여신금액'] = pd.to_numeric(u_fin['여신금액'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
                         u_fin['수신금액'] = pd.to_numeric(u_fin['수신금액'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-                        
                         chart_data = u_fin.melt('기준년월', value_vars=['여신금액', '수신금액'], var_name='종류', value_name='금액')
                         chart = alt.Chart(chart_data).mark_line(point=True).encode(
                             x='기준년월', y='금액', color='종류', tooltip=['기준년월', '금액']
                         ).interactive()
                         st.altair_chart(chart, use_container_width=True)
-                    else:
-                        st.caption("금융 거래 내역이 없습니다.")
-                else:
-                    st.error("금융이력 시트에 '고객번호' 열이 없습니다.")
+                    else: st.caption("금융 거래 내역 없음")
+                else: st.error("금융이력 시트 오류 (고객번호 열 확인)")
 
-            # 상담 입력
             st.markdown("#### 💬 상담 작성")
             d_date = st.date_input("날짜", datetime.now())
             raw_txt = st.text_area("내용", height=100)
-            
             needs_act = st.checkbox("🚨 후속 조치 필요")
             dept, req_note = "-", ""
             if needs_act:
@@ -350,7 +334,6 @@ else:
                 if raw_txt:
                     status = "조치필요" if needs_act else "완료"
                     polished, summary, new_tags = raw_txt, "", ""
-                    
                     if ai_available:
                         with st.spinner("AI 분석 중..."):
                             try:
@@ -361,19 +344,15 @@ else:
                                     elif l.startswith("요약:"): summary = l.replace("요약:","").strip()
                                     elif l.startswith("태그:"): new_tags = l.replace("태그:","").strip()
                             except: pass
-                    
-                    # 저장 시 고객번호(target['고객번호'])를 같이 넘김
                     save_log(d_date, st.session_state['user_name'], target['고객번호'], target['이름'], target['연락처'], 
                              raw_txt, polished, summary, new_tags, dept, status, req_note)
                     st.success("저장 완료!")
                     time.sleep(1)
                     st.rerun()
 
-            # 이력 표시 (고객번호로 매칭)
             st.markdown("#### 📜 이력")
             df_log = get_data('상담이력')
             if not df_log.empty:
-                # 고객번호 일치하는 것만 필터링
                 logs = df_log[df_log['고객번호'] == target['고객번호']].iloc[::-1]
                 if not logs.empty:
                     with st.container(height=350):
@@ -409,15 +388,20 @@ else:
                                 ans = c2.text_input("결과", key=f"a_{i}")
                                 if c2.button("완료", key=f"b_{i}", use_container_width=True):
                                     if ans:
-                                        # 완료 처리 시 날짜+고객번호로 찾아서 처리
                                         ok = complete_action_logic(r['날짜'], r['고객번호'], ans, st.session_state['user_name'])
                                         if ok:
                                             st.toast("완료")
                                             time.sleep(1)
                                             st.rerun()
                                     else: st.warning("내용 입력")
-
         else: st.info("데이터 없음")
 
-
-
+    # ------------------------------------------------
+    # [하단 영역] 로그아웃 버튼 (맨 아래 고정)
+    # ------------------------------------------------
+    st.divider()
+    # [요청 2] 로그아웃 버튼 맨 아래로 배치
+    if st.button("🚪 로그아웃", type="secondary", use_container_width=True):
+        add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
+        st.session_state['logged_in'] = False
+        st.rerun()
