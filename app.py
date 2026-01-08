@@ -17,6 +17,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# 👇 [여기부터] UI 숨기기 코드 추가 (복사해서 붙여넣으세요) 👇
+hide_streamlit_style = """
+            <style>
+            /* 1. 상단 헤더 숨기기 (햄버거 메뉴, 깃허브 아이콘 등) */
+            header {visibility: hidden;}
+            
+            /* 2. 하단 푸터 숨기기 (Made with Streamlit) */
+            footer {visibility: hidden;}
+            
+            /* 3. 혹시 모를 햄버거 메뉴 버튼 숨기기 */
+            #MainMenu {visibility: hidden;}
+            
+            /* 4. 우측 상단 배포 버튼 숨기기 */
+            .stDeployButton {display:none;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# 👆 [여기까지] 추가하면 됩니다 👆
+
 # [인증 정보 캐싱]
 @st.cache_resource
 def get_google_sheet_client():
@@ -399,3 +418,4 @@ else:
                                     else: st.warning("내용 입력")
 
         else: st.info("데이터 없음")
+
