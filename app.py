@@ -6,6 +6,7 @@ import pandas as pd
 import altair as alt
 from datetime import datetime
 import time
+import pytz
 
 # ==========================================
 # 1. 설정 및 UI 숨김 (강력 모드)
@@ -96,7 +97,11 @@ def add_audit_log(user_name, action, details):
     try:
         client = get_google_sheet_client()
         sheet = client.open('조합원상담관리').worksheet('사용자로그')
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 👇 [수정] 한국 시간으로 강제 설정
+        kst = pytz.timezone('Asia/Seoul')
+        timestamp = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S")
+        
         sheet.append_row([timestamp, user_name, action, details])
     except: pass
 
@@ -413,5 +418,6 @@ else:
         add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
         st.session_state['logged_in'] = False
         st.rerun()
+
 
 
