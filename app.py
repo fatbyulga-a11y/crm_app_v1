@@ -20,23 +20,31 @@ st.set_page_config(
 # 👇 [핵심] 모든 시스템 UI를 숨기는 CSS 코드
 hide_all_ui = """
     <style>
-        /* 1. 상단 헤더, 햄버거 메뉴, 데코레이션 바 숨기기 */
-        header {visibility: hidden;}
+        /* 1. 상단 헤더 전체 숨기기 (햄버거 메뉴 포함) */
+        header {visibility: hidden !important;}
+        [data-testid="stHeader"] {display: none !important;}
         
-        /* 2. 사이드바 및 사이드바 열기 버튼 숨기기 */
-        [data-testid="stSidebar"] {display: none;}
-        [data-testid="collapsedControl"] {display: none;}
+        /* 2. 사이드바 관련 요소 숨기기 */
+        [data-testid="stSidebar"] {display: none !important;}
+        [data-testid="collapsedControl"] {display: none !important;}
         
-        /* 3. 푸터(Made with Streamlit) 숨기기 */
-        footer {visibility: hidden;}
+        /* 3. 푸터(Made with Streamlit) 및 하단 뷰어 배지 숨기기 (모바일 포함) */
+        footer {visibility: hidden !important;}
+        .stFooter {display: none !important;}
+        .viewerBadge_container__1QSob {display: none !important;} /* 뷰어 배지 클래스 */
         
-        /* 4. 우측 상단 점 3개 메뉴 및 배포 버튼 숨기기 */
-        #MainMenu {visibility: hidden;}
-        .stDeployButton {display:none;}
+        /* 4. 우측 상단 메뉴, 배포 버튼, 툴바 숨기기 */
+        #MainMenu {visibility: hidden !important;}
+        .stDeployButton {display:none !important;}
+        [data-testid="stToolbar"] {display: none !important;}
         
-        /* 5. 상단 여백 줄이기 (헤더가 사라진 자리) */
+        /* 5. "Hosted with Streamlit" 등 하단 고정 링크 숨기기 */
+        a[href^="https://streamlit.io/cloud"] {display: none !important;}
+        div[class*="viewerBadge"] {display: none !important;}
+        
+        /* 6. 상단 여백 제거 (헤더 사라진 자리) */
         .block-container {
-            padding-top: 1rem !important; 
+            padding-top: 1rem !important;
         }
     </style>
 """
@@ -405,4 +413,5 @@ else:
         add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
         st.session_state['logged_in'] = False
         st.rerun()
+
 
