@@ -14,7 +14,7 @@ st.set_page_config(
     page_title="춘천시산림조합 CRM", 
     page_icon="🌲", 
     layout="wide", 
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # 👇 [여기부터] UI 숨기기 코드 추가 (복사해서 붙여넣으세요) 👇
@@ -418,4 +418,5 @@ else:
                                     else: st.warning("내용 입력")
 
         else: st.info("데이터 없음")
+
 
