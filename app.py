@@ -334,7 +334,8 @@ else:
                 else: st.error("금융이력 시트 오류 (고객번호 열 확인)")
 
             st.markdown("#### 💬 상담 작성")
-            d_date = st.date_input("날짜", datetime.now())
+            kst = pytz.timezone('Asia/Seoul')
+            d_date = st.date_input("날짜", datetime.now(kst))
             raw_txt = st.text_area("내용", height=100)
             needs_act = st.checkbox("🚨 후속 조치 필요")
             dept, req_note = "-", ""
@@ -418,6 +419,7 @@ else:
         add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
         st.session_state['logged_in'] = False
         st.rerun()
+
 
 
 
