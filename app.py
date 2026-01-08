@@ -155,7 +155,7 @@ if 'logged_in' not in st.session_state:
 
 if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.title("🌲 춘천시산림조합 CRM")
+    st.title("🌲춘천시산림조합")
     with st.container(border=True):
         uid = st.text_input("아이디")
         upw = st.text_input("비밀번호", type="password")
@@ -180,7 +180,7 @@ else:
             st.session_state['logged_in'] = False
             st.rerun()
 
-    st.title("🌲 통합 고객관리 시스템")
+    st.title("🌲고객관리 시스템")
     
     t1, t2, t3 = st.tabs(["🏠 최근 활동", "🔎 고객 상담", "🚨 업무 협조"])
 
@@ -397,4 +397,5 @@ else:
                                             time.sleep(1)
                                             st.rerun()
                                     else: st.warning("내용 입력")
+
         else: st.info("데이터 없음")
