@@ -348,6 +348,7 @@ else:
                 if raw_txt:
                     status = "조치필요" if needs_act else "완료"
                     polished, summary, new_tags = raw_txt, "", ""
+                    
                     if ai_available:
                         with st.spinner("AI 분석 중..."):
                             try:
@@ -357,7 +358,13 @@ else:
                                     if l.startswith("정제:"): polished = l.replace("정제:","").strip()
                                     elif l.startswith("요약:"): summary = l.replace("요약:","").strip()
                                     elif l.startswith("태그:"): new_tags = l.replace("태그:","").strip()
-                            except: pass
+                            except Exception as e:
+                                # 🚨 AI 분석 실패 시 에러 메시지 출력
+                                st.error(f"AI 분석 실패: {e}")
+                                st.caption("원본 내용으로 저장합니다.")
+                                time.sleep(2)
+                    
+                    # 저장 함수 실행
                     save_log(d_date, st.session_state['user_name'], target['고객번호'], target['이름'], target['연락처'], 
                              raw_txt, polished, summary, new_tags, dept, status, req_note)
                     st.success("저장 완료!")
@@ -419,6 +426,7 @@ else:
         add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
         st.session_state['logged_in'] = False
         st.rerun()
+
 
 
 
