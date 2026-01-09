@@ -77,7 +77,7 @@ try:
         genai.configure(api_key=st.secrets["general"]["GOOGLE_API_KEY"])
         model = genai.GenerativeModel('gemini-2.5-flash')
         ai_available = True
-        ai_status_msg = "🟢 AI 연결 성공"
+        ai_status_msg = "🟢AI"
     else:
         ai_status_msg = "🔴 API 키 없음 (secrets.toml [general] 확인)"
 except Exception as e:
@@ -432,3 +432,4 @@ else:
         add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
         st.session_state['logged_in'] = False
         st.rerun()
+
