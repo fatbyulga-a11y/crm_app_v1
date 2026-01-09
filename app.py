@@ -15,38 +15,25 @@ st.set_page_config(
     page_title="춘천시산림조합 CRM", 
     page_icon="🌲", 
     layout="wide", 
-    initial_sidebar_state="collapsed" # 사이드바 기본 닫힘
+    initial_sidebar_state="collapsed"
 )
 
-# 👇 [핵심] 모든 시스템 UI를 숨기는 CSS 코드
+# 👇 UI 숨김 CSS
 hide_all_ui = """
     <style>
-        /* 1. 상단 헤더 전체 숨기기 (햄버거 메뉴 포함) */
         header {visibility: hidden !important;}
         [data-testid="stHeader"] {display: none !important;}
-        
-        /* 2. 사이드바 관련 요소 숨기기 */
         [data-testid="stSidebar"] {display: none !important;}
         [data-testid="collapsedControl"] {display: none !important;}
-        
-        /* 3. 푸터(Made with Streamlit) 및 하단 뷰어 배지 숨기기 (모바일 포함) */
         footer {visibility: hidden !important;}
         .stFooter {display: none !important;}
-        .viewerBadge_container__1QSob {display: none !important;} /* 뷰어 배지 클래스 */
-        
-        /* 4. 우측 상단 메뉴, 배포 버튼, 툴바 숨기기 */
+        .viewerBadge_container__1QSob {display: none !important;}
         #MainMenu {visibility: hidden !important;}
         .stDeployButton {display:none !important;}
         [data-testid="stToolbar"] {display: none !important;}
-        
-        /* 5. "Hosted with Streamlit" 등 하단 고정 링크 숨기기 */
         a[href^="https://streamlit.io/cloud"] {display: none !important;}
         div[class*="viewerBadge"] {display: none !important;}
-        
-        /* 6. 상단 여백 제거 (헤더 사라진 자리) */
-        .block-container {
-            padding-top: 1rem !important;
-        }
+        .block-container {padding-top: 1rem !important;}
     </style>
 """
 st.markdown(hide_all_ui, unsafe_allow_html=True)
@@ -67,7 +54,7 @@ def get_google_sheet_client():
     except Exception as e:
         return None
 
-# [데이터 로드 캐싱] (TTL 10분)
+# [데이터 로드 캐싱]
 @st.cache_data(ttl=600) 
 def get_data(worksheet_name):
     try:
@@ -80,14 +67,21 @@ def get_data(worksheet_name):
         return pd.DataFrame(data, columns=headers)
     except: return pd.DataFrame()
 
-# AI 설정
+# -----------------------------------------------------------
+# 🤖 [수정됨] AI 설정 (진단 메시지 추가)
+# -----------------------------------------------------------
+ai_status_msg = ""
 ai_available = False
 try:
     if "general" in st.secrets and "GOOGLE_API_KEY" in st.secrets["general"]:
         genai.configure(api_key=st.secrets["general"]["GOOGLE_API_KEY"])
         model = genai.GenerativeModel('gemini-2.5-flash')
         ai_available = True
-except: pass
+        ai_status_msg = "🟢 AI 연결 성공"
+    else:
+        ai_status_msg = "🔴 API 키 없음 (secrets.toml [general] 확인)"
+except Exception as e:
+    ai_status_msg = f"🔴 AI 오류: {str(e)}"
 
 # ==========================================
 # 2. 로직 함수들
@@ -97,11 +91,8 @@ def add_audit_log(user_name, action, details):
     try:
         client = get_google_sheet_client()
         sheet = client.open('조합원상담관리').worksheet('사용자로그')
-        
-        # 👇 [수정] 한국 시간으로 강제 설정
         kst = pytz.timezone('Asia/Seoul')
         timestamp = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S")
-        
         sheet.append_row([timestamp, user_name, action, details])
     except: pass
 
@@ -121,13 +112,14 @@ def save_log(date, writer, cust_id, name, contact, raw, polished, summary, tags,
                 if '태그' in headers:
                     col_idx = headers.index('태그') + 1
                     curr = sheet_user.cell(cell.row, col_idx).value
-                    new_list = [t.strip() for t in tags.split(',')]
+                    # 태그 정제 (따옴표 제거 등)
+                    clean_tags = [t.strip().replace("'", "").replace('"', "") for t in tags.split(',')]
                     if curr:
                         old_list = [t.strip() for t in curr.split(',')]
-                        final = list(set(old_list + new_list))
+                        final = list(set(old_list + clean_tags))
                         new_str = ", ".join(final)
                     else:
-                        new_str = ", ".join(new_list)
+                        new_str = ", ".join(clean_tags)
                     sheet_user.update_cell(cell.row, col_idx, new_str)
         except: pass
     
@@ -187,6 +179,8 @@ if 'logged_in' not in st.session_state:
 if not st.session_state['logged_in']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.title("🌲춘천시산림조합")
+    if "🔴" in ai_status_msg: st.error(ai_status_msg) # AI 오류 시 로그인 화면에 표시
+    
     with st.container(border=True):
         uid = st.text_input("아이디")
         upw = st.text_input("비밀번호", type="password")
@@ -200,30 +194,22 @@ if not st.session_state['logged_in']:
             else:
                 st.error("정보 불일치")
 else:
-    # ------------------------------------------------
-    # [상단 영역] 제목 + 사용자정보 + 새로고침 버튼
-    # ------------------------------------------------
     c_top1, c_top2 = st.columns([8, 2])
     
     with c_top1:
         st.title("🌲고객관리 시스템")
-        st.caption(f"👤 로그인: **{st.session_state['user_name']}**님 환영합니다.")
+        st.caption(f"👤 **{st.session_state['user_name']}**님 | {ai_status_msg}")
         
     with c_top2:
-        # [요청 1] 데이터 새로고침 버튼 맨 위로 이동
-        st.markdown("<br>", unsafe_allow_html=True) # 줄맞춤용 공백
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🔄 데이터 최신화", use_container_width=True):
             get_data.clear()
             st.toast("데이터를 새로 불러왔습니다!")
             time.sleep(1)
             st.rerun()
 
-    # ------------------------------------------------
-    # [메인 영역] 탭 및 기능들
-    # ------------------------------------------------
     t1, t2, t3 = st.tabs(["🏠 최근 활동", "🔎 고객 상담", "🚨 업무 협조"])
 
-    # [Tab 1] 최근 활동
     with t1:
         st.subheader("📢 실시간 상담이력")
         df = get_data('상담이력')
@@ -245,7 +231,6 @@ else:
                         c2.error(f"🚨 후속조치 요청 ({row['조치부서']}): {req}")
         else: st.info("데이터 없음")
 
-    # [Tab 2] 고객 상담
     with t2:
         st.markdown("##### **고객 검색**")
         df_c = get_data('고객정보')
@@ -344,27 +329,53 @@ else:
                 dept = c_x.selectbox("부서", ["사업과", "지도과", "유통과", "금융과"])
                 req_note = c_y.text_input("요청사항")
 
+            # -----------------------------------------------------------
+            # [수정됨] 저장 버튼 & AI 분석 로직 (강력 디버깅 포함)
+            # -----------------------------------------------------------
             if st.button("💾 저장하기", type="primary", use_container_width=True):
                 if raw_txt:
                     status = "조치필요" if needs_act else "완료"
                     polished, summary, new_tags = raw_txt, "", ""
                     
                     if ai_available:
-                        with st.spinner("AI 분석 중..."):
+                        with st.spinner("AI 분석 중... (잠시만 기다려주세요)"):
                             try:
-                                p = f"역할:비서. 내용:{raw_txt}. 1.정제(격식), 2.요약(한줄), 3.태그(3개)"
+                                # Prompt를 심플하게 변경하여 성공률 높임
+                                p = f"""
+                                역할: 유능한 비서.
+                                내용: {raw_txt}
+                                
+                                지시: 위 내용을 바탕으로 3가지를 추출해.
+                                1. 정제: 문장을 격식있게 다듬어줘.
+                                2. 요약: 핵심 내용을 한 줄로 요약해줘.
+                                3. 태그: 핵심 키워드 3개를 쉼표(,)로 구분해서 적어줘.
+                                
+                                출력형식(반드시 지킬것):
+                                정제: [내용]
+                                요약: [내용]
+                                태그: [내용]
+                                """
                                 resp = model.generate_content(p).text
+                                
+                                # [핵심] 유연한 파싱 (글자가 조금 달라도 알아먹게)
                                 for l in resp.split('\n'):
-                                    if l.startswith("정제:"): polished = l.replace("정제:","").strip()
-                                    elif l.startswith("요약:"): summary = l.replace("요약:","").strip()
-                                    elif l.startswith("태그:"): new_tags = l.replace("태그:","").strip()
+                                    l = l.strip() # 공백제거
+                                    # "정제:" 또는 "**정제:**" 등이 포함되면 처리
+                                    if "정제:" in l: 
+                                        polished = l.split("정제:")[1].strip().replace("*","")
+                                    elif "요약:" in l: 
+                                        summary = l.split("요약:")[1].strip().replace("*","")
+                                    elif "태그:" in l: 
+                                        new_tags = l.split("태그:")[1].strip().replace("*","")
+                                        
                             except Exception as e:
-                                # 🚨 AI 분석 실패 시 에러 메시지 출력
-                                st.error(f"AI 분석 실패: {e}")
+                                st.error(f"⚠️ AI 처리 중 오류: {e}")
                                 st.caption("원본 내용으로 저장합니다.")
-                                time.sleep(2)
-                    
-                    # 저장 함수 실행
+                                time.sleep(3)
+                    else:
+                        st.warning("⚠️ AI 기능이 꺼져있어 원본만 저장합니다.")
+                        time.sleep(2)
+
                     save_log(d_date, st.session_state['user_name'], target['고객번호'], target['이름'], target['연락처'], 
                              raw_txt, polished, summary, new_tags, dept, status, req_note)
                     st.success("저장 완료!")
@@ -386,7 +397,6 @@ else:
                                 if r.get('조치결과'): st.success(f"✅ {r['조치결과']}")
                                 elif r['조치상태'] == '조치필요': st.error(f"⏳ 대기중 ({r['조치부서']}): {r['요청사항']}")
 
-    # [Tab 3] 업무 협조
     with t3:
         st.subheader("🚨 후속 조치 대기")
         df_all = get_data('상담이력')
@@ -417,17 +427,8 @@ else:
                                     else: st.warning("내용 입력")
         else: st.info("데이터 없음")
 
-    # ------------------------------------------------
-    # [하단 영역] 로그아웃 버튼 (맨 아래 고정)
-    # ------------------------------------------------
     st.divider()
-    # [요청 2] 로그아웃 버튼 맨 아래로 배치
     if st.button("🚪 로그아웃", type="secondary", use_container_width=True):
         add_audit_log(st.session_state['user_name'], "로그아웃", "종료")
         st.session_state['logged_in'] = False
         st.rerun()
-
-
-
-
-
